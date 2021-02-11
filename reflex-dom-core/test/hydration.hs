@@ -164,6 +164,27 @@ tests withDebugging wdConfig caps _selenium = do
       testWidget = testWidgetDebug withDebugging
       testWidget' :: WD a -> (a -> WD b) -> (forall m js. TestWidget js (SpiderTimeline Global) m => m ()) -> WD b
       testWidget' = testWidgetDebug' withDebugging
+
+  -- TODO: This test presupposes the exact set of labels that "dropdown" places in the "value" fields to distinguish options.
+  -- This dependence on internal implementation details is undesirable in a test case, but seems fairly tricky to avoid.
+  -- It seems expedient for the time being to expect this test case to be updated, should those implementation details ever change.
+  describe "dropdown" $ session' $ do
+    let fetchElement e = do
+          val <- withRetry $ WD.attr e "value"
+          sel <- withRetry $ WD.attr e "selected"
+          return (fromMaybe "" val, sel /= Nothing)
+        doTest expectedOpts (initialValue :: Text) = do
+          let doCheck = do
+                es <- findElemsWithRetry $ WD.ByTag "option"
+                opts <- mapM fetchElement es
+                assertEqual "missing/extra/incorrect option element(s)" expectedOpts (sort opts)
+          testWidget doCheck doCheck $ do
+            void $ dropdown initialValue (constDyn (("aa" :: Text) =: "aaa" <> "bb" =: "bbb")) def
+    it "statically renders initial values (on aa)" $ runWD $ do
+      doTest [("0",True),("1",False)] "aa"
+    it "statically renders initial values (on bb)" $ runWD $ do
+      doTest [("0",False),("1",True)] "bb"
+{--
   describe "text" $ session' $ do
     it "works" $ runWD $ do
       testWidgetStatic (checkBodyText "hello world") $ do
@@ -1299,6 +1320,7 @@ tests withDebugging wdConfig caps _selenium = do
           text "before"
           el "ol" $ text "inner"
           text "after"
+--}
 
   -- TODO: This test presupposes the exact set of labels that "dropdown" places in the "value" fields to distinguish options.
   -- This dependence on internal implementation details is undesirable in a test case, but seems fairly tricky to avoid.
